@@ -2,6 +2,7 @@ import time
 import board
 import neopixel
 import digitalio
+import busio
 import adafruit_dotstar
 import supervisor
 
@@ -28,10 +29,33 @@ sunmax = 230
 # For RGBW NeoPixels, simply change the ORDER to RGBW or GRBW.
 ORDER = neopixel.GRB
 
+uart = busio.UART(board.TX, board.RX, baudrate=9600)
+
 pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=pixel_brightness, auto_write=False,
                            pixel_order=ORDER)
 pixels.fill((0,0,0))
 pixels.show()
+
+def wheel(pos):
+    # Input a value 0 to 255 to get a color value.
+    # The colours are a transition r - g - b - back to r.
+    if pos < 0 or pos > 255:
+        r = g = b = 0
+    elif pos < 85:
+        r = int(pos * 3)
+        g = int(255 - pos*3)
+        b = 0
+    elif pos < 170:
+        pos -= 85
+        r = int(255 - pos*3)
+        g = 0
+        b = int(pos*3)
+    else:
+        pos -= 170
+        r = 0
+        g = int(pos*3)
+        b = int(255 - pos*3)
+    return (r, g, b) if ORDER == neopixel.RGB or ORDER == neopixel.GRB else (r, g, b, 0)
 
 def rainbow_cycle(frame):
     for i in range(num_pixels):
@@ -91,9 +115,11 @@ led[0] = (25, 0, 0)
 while True:
 
     # Check for a new command in the buffer
-    if(supervisor.runtime.serial_bytes_available == True):
-        command = input()
-        parsed_command = command.split(' ')
+    if(uart.in_waiting > 0):
+        command = uart.read()
+        command_string = ''.join([chr(b) for b in command])
+        print(command_string, end="")
+        parsed_command = command_string.split(' ')
         if(parsed_command[0] == HEADER): # Command has a valid header
 
             #Parse command
