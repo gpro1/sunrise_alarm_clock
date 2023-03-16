@@ -9,6 +9,8 @@ import supervisor
 #command headers for uart interface
 HEADER = "GB23"
 
+SUNRISE_PERIOD_S = 3.9
+
 #Onboard LED
 led = adafruit_dotstar.DotStar(board.APA102_SCK, board.APA102_MOSI, 1)
 
@@ -126,20 +128,34 @@ while True:
             if(parsed_command[1] == "rainbow"):
                 mode = 1
                 curr_frame = 0
+                pixels.brightness = 1
             elif(parsed_command[1] == "off"):
                 mode = 0
+                pixels.brightness = 1
                 fill_colour(0,0,0)
             elif(parsed_command[1] == "colour"):
                 mode = 0
+                pixels.brightness = 1
                 fill_colour(int(parsed_command[2]), int(parsed_command[3]), int(parsed_command[4]))
             elif(parsed_command[1] == "sunrise"):
                 mode = 2
                 curr_frame = 0
+                frame_time = 0
+                pixels.brightness = 1
+            elif(parsed_command[1] == "brightness"):
+                setting = float(parsed_command[2])
+                if(setting < 0 or setting > 1):
+                    setting = 1
+                pixels.brightness = setting
+                pixels.show()
             else:
                 print("Invalid command")
+
+    curr_time = time.time()
 
     #Update the LEDs depending on mode
     if(mode == 1):
         curr_frame = rainbow_cycle(curr_frame)
-    elif(mode == 2):
+    elif(mode == 2 and (abs(curr_time - frame_time)) >= SUNRISE_PERIOD_S):
         curr_frame = sunrise(curr_frame)
+        frame_time = curr_time
