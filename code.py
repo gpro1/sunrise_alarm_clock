@@ -1,15 +1,20 @@
 import time
+import random
 import board
 import neopixel
 import digitalio
 import busio
 import adafruit_dotstar
 import supervisor
+import math
 
 #command headers for uart interface
 HEADER = "GB23"
 
-SUNRISE_PERIOD_S = 3.9
+SUNRISE_PERIOD_S = 0.05
+MOONLIGHT_PERIOD_S = 0.05
+
+
 
 #Onboard LED
 led = adafruit_dotstar.DotStar(board.APA102_SCK, board.APA102_MOSI, 1)
@@ -19,13 +24,15 @@ pixel_pin = board.D5
 
 # The number of NeoPixels
 num_pixels = 40
-
+GAMMA = 1.8
 pixel_brightness = 1
 
 #Max values for sunrise function
 blueMax = 45
 greenMax = 130
 sunmax = 230
+
+
 
 # The order of the pixel colors - RGB or GRB. Some NeoPixels have red and green reversed!
 # For RGBW NeoPixels, simply change the ORDER to RGBW or GRBW.
@@ -59,6 +66,7 @@ def wheel(pos):
         b = int(255 - pos*3)
     return (r, g, b) if ORDER == neopixel.RGB or ORDER == neopixel.GRB else (r, g, b, 0)
 
+
 def rainbow_cycle(frame):
     for i in range(num_pixels):
         pixel_index = (i * 256 // num_pixels) + frame
@@ -66,6 +74,66 @@ def rainbow_cycle(frame):
     pixels.show()
     frame = frame + 1
     if(frame > 255):
+        frame = 0
+    return frame
+
+
+# Define a function to apply the gamma filter to a color tuple
+def gamma_correct(color):
+    return tuple(int(pow(c / 255.0, GAMMA) * 255) for c in color)
+
+pixel_colour = [[130,0,255]]*20
+pixel_index = [-1]*20
+pixel_position = [0]*20
+num_flashing = 20
+
+def moonlight_shimmer(frame):
+    global pixel_colour
+    global pixel_index
+
+    num = random.uniform(0,2)
+    num = int(num*100)
+    if(num%10 == 0):
+
+        num = int(num/10)
+        print(num)
+        if(pixel_index[num] == -1):
+            pixel_index[num] = 0
+            pixel_position[num] = int(random.uniform(0,40))
+
+    if(frame == 0):
+        pixels.fill((130, 0, 255))
+
+    for i in range(num_flashing):
+        if(pixel_index[i] == -1):
+            continue
+        elif(pixel_index[i] == 0):
+            pixel_colour[i] = [130, 0, 255]
+        elif(pixel_index[i] == 100):
+            pixel_colour[i] = [130, 0, 255]
+        elif(pixel_index[i] < 50):
+            pixel_colour[i][0] += 2.4
+            pixel_colour[i][1] += 3.0
+            pixel_colour[i][2] -= 4.0
+        else:
+            pixel_colour[i][0] -= 2.4
+            pixel_colour[i][1] -= 2.8
+            pixel_colour[i][2] += 3.8
+
+        pixel_index[i] += 1
+        if(pixel_index[i] > 100):
+            pixel_index[i] = -1
+
+
+        rounded_pix = (int(round(pixel_colour[i][0],0)),int(round(pixel_colour[i][1],0)) , int(round(pixel_colour[i][2],0)))
+        pixels[pixel_position[i]] = gamma_correct(rounded_pix)
+
+    pixels.show()
+
+
+
+    frame += 1;
+    if(frame > 100):
         frame = 0
     return frame
 
@@ -109,9 +177,11 @@ def b_sun(index):
 
 led.brightness = 0.5
 led[0] = (0,0,0)
-mode = 0
+mode = 3
 curr_frame = 0
+frame_time = 0
 led[0] = (25, 0, 0)
+pixels.brightness = 0.1
 
 #TODO: Add some sort of delay option for the animations
 while True:
@@ -151,11 +221,17 @@ while True:
             else:
                 print("Invalid command")
 
-    curr_time = time.time()
+    #curr_time = supervisor.ticks_ms()
+    curr_time = time.monotonic()
+    #print(curr_frame)
 
     #Update the LEDs depending on mode
     if(mode == 1):
         curr_frame = rainbow_cycle(curr_frame)
     elif(mode == 2 and (abs(curr_time - frame_time)) >= SUNRISE_PERIOD_S):
         curr_frame = sunrise(curr_frame)
+        frame_time = curr_time
+    elif(mode == 3 and (abs(curr_time - frame_time)) >= MOONLIGHT_PERIOD_S):
+
+        curr_frame = moonlight_shimmer(curr_frame)
         frame_time = curr_time
