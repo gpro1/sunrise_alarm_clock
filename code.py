@@ -96,7 +96,7 @@ def moonlight_shimmer(frame):
     if(num%10 == 0):
 
         num = int(num/10)
-        print(num)
+        #print(num)
         if(pixel_index[num] == -1):
             pixel_index[num] = 0
             pixel_position[num] = int(random.uniform(0,40))
@@ -124,13 +124,10 @@ def moonlight_shimmer(frame):
         if(pixel_index[i] > 100):
             pixel_index[i] = -1
 
-
         rounded_pix = (int(round(pixel_colour[i][0],0)),int(round(pixel_colour[i][1],0)) , int(round(pixel_colour[i][2],0)))
         pixels[pixel_position[i]] = gamma_correct(rounded_pix)
 
     pixels.show()
-
-
 
     frame += 1;
     if(frame > 100):
@@ -177,18 +174,18 @@ def b_sun(index):
 
 led.brightness = 0.5
 led[0] = (0,0,0)
-mode = 3
+mode = 0
 curr_frame = 0
 frame_time = 0
 led[0] = (25, 0, 0)
-pixels.brightness = 0.1
+pixels.brightness = 1
 
 #TODO: Add some sort of delay option for the animations
 while True:
 
     # Check for a new command in the buffer
     if(uart.in_waiting > 0):
-        command = uart.read()
+        command = uart.readline()
         command_string = ''.join([chr(b) for b in command])
         print(command_string, end="")
         parsed_command = command_string.split(' ')
@@ -198,14 +195,11 @@ while True:
             if(parsed_command[1] == "rainbow"):
                 mode = 1
                 curr_frame = 0
-                pixels.brightness = 1
             elif(parsed_command[1] == "off"):
                 mode = 0
-                pixels.brightness = 1
                 fill_colour(0,0,0)
             elif(parsed_command[1] == "colour"):
                 mode = 0
-                pixels.brightness = 1
                 fill_colour(int(parsed_command[2]), int(parsed_command[3]), int(parsed_command[4]))
             elif(parsed_command[1] == "sunrise"):
                 mode = 2
@@ -218,6 +212,10 @@ while True:
                     setting = 1
                 pixels.brightness = setting
                 pixels.show()
+            elif(parsed_command[1] == "moonlight"):
+                mode = 3
+                curr_frame = 0
+                frame_time = 0
             else:
                 print("Invalid command")
 
@@ -232,6 +230,5 @@ while True:
         curr_frame = sunrise(curr_frame)
         frame_time = curr_time
     elif(mode == 3 and (abs(curr_time - frame_time)) >= MOONLIGHT_PERIOD_S):
-
         curr_frame = moonlight_shimmer(curr_frame)
         frame_time = curr_time
